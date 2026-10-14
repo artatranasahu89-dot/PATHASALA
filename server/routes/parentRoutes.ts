@@ -35,16 +35,15 @@ parentRouter.post('/login', (req: Request, res: Response) => {
     return res.status(400).json({ error: 'phoneOrEmail and pin are required.' });
   }
 
-  const result = parentService.verifyParentLogin(phoneOrEmail, pin);
-  if (!result) {
+  try {
+    const result = authService.login(phoneOrEmail, pin);
+    if (result.user.role !== 'PARENT') return res.status(403).json({ error: 'Parent account required.' });
+    const parent = parentService.getParentById(result.user.uid);
+    if (!parent) return res.status(404).json({ error: 'Parent profile is not configured.' });
+    res.json({ status: 'AUTHENTICATED', parent, token: result.token });
+  } catch {
     return res.status(401).json({ error: 'Invalid credentials or PIN.' });
   }
-
-  res.json({
-    status: 'AUTHENTICATED',
-    parent: result.parent,
-    token: result.token,
-  });
 });
 
 /**
