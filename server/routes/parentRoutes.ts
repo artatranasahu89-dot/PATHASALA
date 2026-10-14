@@ -114,20 +114,9 @@ parentRouter.put('/policy/:childId', requireParentAuth, (req: Request, res: Resp
  * POST /api/v1/parent/link-child
  * Link an existing child to this parent account (max 2)
  */
-parentRouter.post('/link-child', requireParentAuth, (req: Request, res: Response) => {
-  const parentId = (req as any).parentId;
-  const { studentId } = req.body;
-
-  if (!studentId) {
-    return res.status(400).json({ error: 'studentId is required' });
-  }
-
-  const result = parentService.linkChild(parentId, studentId);
-  if (!result.success) {
-    return res.status(400).json({ error: result.message });
-  }
-
-  res.json({ status: 'LINKED', message: result.message });
+parentRouter.post('/link-child', requireParentAuth, (_req: Request, res: Response) => {
+  // Direct ID linking bypasses proof of guardianship. Use the expiring pairing-code flow instead.
+  res.status(403).json({ error: 'Direct child-ID linking is disabled. Use /link-with-code with a valid, unexpired student pairing code.' });
 });
 
 /**
