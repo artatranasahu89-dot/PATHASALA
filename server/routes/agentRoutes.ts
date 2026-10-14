@@ -5,11 +5,13 @@
  */
 
 import { Router } from 'express';
+import { AuthenticatedRequest, requireAuth, requireRole } from './authRoutes';
 import { PedagogicalAgent } from '../agents/pedagogicalAgent';
 import { ToolRegistry } from '../tools/registry';
 import { learningStateService } from '../services/learningStateService';
 
 export const agentRouter = Router();
+agentRouter.use(requireAuth, requireRole(['STUDENT']));
 
 // Primary 8-stage interactive learning loop
 agentRouter.post('/interact', async (req, res) => {
@@ -18,7 +20,7 @@ agentRouter.post('/interact', async (req, res) => {
 
     const result = await PedagogicalAgent.interact({
       sessionId,
-      learnerId: learnerId || 'learner_pilot_odia_01',
+      learnerId: (req as AuthenticatedRequest).user!.uid,
       message: message || 'ଆଲୋକ ସଂଶ୍ଳେଷଣ କିପରି ହୁଏ ବୁଝାଇ ଦିଅନ୍ତୁ',
       subjectId,
       topic,
@@ -36,7 +38,7 @@ agentRouter.post('/interact', async (req, res) => {
 agentRouter.post('/session/start', async (req, res) => {
   try {
     const { curriculumCode, subjectId, chapterId, conceptId, topic, learnerId } = req.body;
-    const lId = learnerId || 'learner_pilot_odia_01';
+    const lId = (req as AuthenticatedRequest).user!.uid;
 
     const state = await PedagogicalAgent.startSession({
       learnerId: lId,
@@ -77,7 +79,7 @@ agentRouter.post('/step', async (req, res) => {
 
     const result = await PedagogicalAgent.checkAnswer({
       sessionId,
-      learnerId: learnerId || 'learner_pilot_odia_01',
+      learnerId: (req as AuthenticatedRequest).user!.uid,
       questionId: questionId || 'q_light_01',
       conceptId: conceptId || 'concept_light_reaction',
       selectedOptionIndex,
@@ -173,7 +175,7 @@ agentRouter.post('/plan/update', async (req, res) => {
 // Real persistent progress & history
 agentRouter.get('/progress/:learnerId', async (req, res) => {
   try {
-    const learnerId = req.params.learnerId || 'learner_pilot_odia_01';
+    const learnerId = (req as AuthenticatedRequest).user!.uid;
     const progress = learningStateService.getLearningProgress(learnerId);
     res.json(progress);
   } catch (err: unknown) {
@@ -185,6 +187,10 @@ agentRouter.get('/progress/:learnerId', async (req, res) => {
 // Retrieve audit traces for observability
 agentRouter.get('/trace/:sessionId', (req, res) => {
   const session = PedagogicalAgent.getSession(req.params.sessionId);
+  if (session && session.learnerId !== (req as AuthenticatedRequest).user!.uid) {
+    res.status(403).json({ error: 'Access denied to another learner session.' });
+    return;
+  }
   if (!session) {
     res.status(404).json({ error: 'Session not found' });
     return;
