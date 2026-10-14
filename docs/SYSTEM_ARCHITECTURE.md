@@ -182,3 +182,13 @@ BharatLearn AI is built as a distributed, service-oriented web application desig
 - **Frontend**: Built via Vite as static assets, served via CDN or lightweight Node.js/Express server (AI Studio runner), with PWA manifest and service worker.
 - **Backend**: Containerized FastAPI application running on Cloud Run or container orchestration, scaling from 0 to N instances.
 - **Database**: Managed PostgreSQL with connection pooling (e.g. pgBouncer or asyncpg pool).
+
+## 8. Current Runtime vs. Target Architecture — Audit Note (2026-10-14)
+
+The checked-in runtime uses React + TypeScript + Vite and an Express/TypeScript API (entry point `server.ts`, gateway `server/index.ts`). Some earlier sections of this document describe a target FastAPI/LangGraph/PostgreSQL architecture; those are design aspirations and must not be interpreted as implemented runtime components.
+
+Current persistence limitation: the server services use in-memory Maps for accounts, sessions, parental state, and learning state. The current Firebase integration is a browser SDK integration and does not establish secure server-side persistence. Firestore must not be called the system of record until a server-side repository is implemented, configured, and verified.
+
+Current offline limitation: the queue hook and sync endpoint are not yet a complete durable sync system. The queue must persist in IndexedDB; the authenticated server must validate and apply each supported mutation durably and idempotently before the client removes it from the queue.
+
+Security branch changes add verified-session checks and identity scoping for agent, parent, study-session, learner-profile, progress, and sync routes. These changes remain unverified by a build/test run and must be reviewed before merge.

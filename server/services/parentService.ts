@@ -47,7 +47,10 @@ class ParentServiceStore {
   }> = new Map();
 
   constructor() {
-    this.seedInitialData();
+    // Seeded profiles and PINs are demo-only; never enable them in production.
+    if (process.env.NODE_ENV !== 'production' && process.env.PATHASALA_ENABLE_DEMO_ACCOUNTS === 'true') {
+      this.seedInitialData();
+    }
   }
 
   private seedInitialData() {
@@ -210,17 +213,12 @@ class ParentServiceStore {
         }
       }
     }
-    // Also allow default login for quick development test
-    if (phoneOrEmail === 'parent' || phoneOrEmail === '1234' || pin === '1234') {
-      const parent = this.parents.get('parent_mohanty_01')!;
-      return { parent, token: `parent_token_${parent.id}_${Date.now()}` };
-    }
     return null;
   }
 
   public verifyParentPin(parentId: string, pin: string): boolean {
     const stored = this.parentPins.get(parentId);
-    return stored === pin || pin === '1234';
+    return !!stored && stored === pin;
   }
 
   public getParentById(parentId: string): ParentAccount | null {

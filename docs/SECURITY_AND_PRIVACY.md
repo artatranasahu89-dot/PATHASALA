@@ -88,3 +88,25 @@ Under Section 9 of India's **Digital Personal Data Protection (DPDP) Act 2023**:
      - `/api/v1/auth/login`: Maximum 5 requests per 10 minutes per IP/Phone.
      - `/api/v1/agent/step`: Maximum 30 steps per minute per user session.
      - `/api/v1/sync/batch`: Maximum 10 sync batches per hour per user.
+
+## 8. Repository Implementation Audit Status (2026-10-14)
+
+This section records implementation status separately from the target specification above. The target architecture described earlier is not evidence that every control is already deployed.
+
+### Security changes on the `security/persistence-audit` branch
+- Agent routes require a verified student session and derive the learner identity from it.
+- Study-session routes require a verified student session and derive the acting student ID from it; break/end operations check the active session belongs to that learner.
+- Parent routes no longer accept `x-parent-id` or a default parent ID as identity proof.
+- Parent PIN override requires a verified parent session and a child linked to that parent.
+- Direct parent-child linking by a supplied student ID is blocked; the pairing-code route is the intended linking flow.
+- Learner profile and progress endpoints are scoped to the authenticated learner.
+- Seeded demo credentials and parent data require `PATHASALA_ENABLE_DEMO_ACCOUNTS=true` outside production.
+
+### Important limitations — not yet verified or completed
+- Authentication sessions and application records are still held in process memory. They are lost on server restart and are not a durable persistence implementation.
+- The sync route still does not apply queued actions to a durable learner record. Do not treat an accepted sync response as proof that progress was saved.
+- The frontend offline queue still needs durable IndexedDB storage and an authenticated retry implementation.
+- Firestore client configuration and Firestore rules do not mean the Express server is connected to Firestore. Server-side credentials, repository implementation, rules deployment, and integration tests remain required.
+- The source changes have not been validated by an executed test suite, TypeScript check, or production build in this audit workflow. No security certification is implied.
+
+Production deployment must remain blocked until the outstanding persistence/sync work and listed tests are completed.

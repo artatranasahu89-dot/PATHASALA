@@ -10,30 +10,18 @@ import { authService } from '../services/authService';
 
 export const parentRouter = Router();
 
-// Middleware: Authenticate parent (checks session token or fallback for dev)
+// Middleware: only a verified server-issued session may identify a parent.
 function requireParentAuth(req: Request, res: Response, next: () => void) {
   const authHeader = req.headers.authorization;
   const token = authHeader?.startsWith('Bearer ')
     ? authHeader.slice(7)
     : (req.headers['x-auth-token'] as string);
 
-  if (token) {
-    const session = authService.verifySession(token);
-    if (session && session.role === 'PARENT') {
-      (req as any).parentId = session.uid;
-      return next();
-    }
-    if (session && session.role !== 'PARENT') {
-      return res.status(403).json({ error: 'Access denied: Parent role required.' });
-    }
-  }
-
-  const parentId = (req.headers['x-parent-id'] as string) || 'parent_mohanty_01';
-  const parent = parentService.getParentById(parentId);
-  if (!parent) {
-    return res.status(401).json({ error: 'Unauthorized: Valid Parent credentials required.' });
-  }
-  (req as any).parentId = parentId;
+  if (!token) return res.status(401).json({ error: 'Authentication required.' });
+  const session = authService.verifySession(token);
+  if (!session) return res.status(401).json({ error: 'Session expired or invalid.' });
+  if (session.role !== 'PARENT') return res.status(403).json({ error: 'Parent role required.' });
+  (req as any).parentId = session.uid;
   next();
 }
 
@@ -47,16 +35,15 @@ parentRouter.post('/login', (req: Request, res: Response) => {
     return res.status(400).json({ error: 'phoneOrEmail and pin are required.' });
   }
 
-  const result = parentService.verifyParentLogin(phoneOrEmail, pin);
-  if (!result) {
+  try {
+    const result = authService.login(phoneOrEmail, pin);
+    if (result.user.role !== 'PARENT') return res.status(403).json({ error: 'Parent account required.' });
+    const parent = parentService.getParentById(result.user.uid);
+    if (!parent) return res.status(404).json({ error: 'Parent profile is not configured.' });
+    res.json({ status: 'AUTHENTICATED', parent, token: result.token });
+  } catch {
     return res.status(401).json({ error: 'Invalid credentials or PIN.' });
   }
-
-  res.json({
-    status: 'AUTHENTICATED',
-    parent: result.parent,
-    token: result.token,
-  });
 });
 
 /**
@@ -127,20 +114,9 @@ parentRouter.put('/policy/:childId', requireParentAuth, (req: Request, res: Resp
  * POST /api/v1/parent/link-child
  * Link an existing child to this parent account (max 2)
  */
-parentRouter.post('/link-child', requireParentAuth, (req: Request, res: Response) => {
-  const parentId = (req as any).parentId;
-  const { studentId } = req.body;
-
-  if (!studentId) {
-    return res.status(400).json({ error: 'studentId is required' });
-  }
-
-  const result = parentService.linkChild(parentId, studentId);
-  if (!result.success) {
-    return res.status(400).json({ error: result.message });
-  }
-
-  res.json({ status: 'LINKED', message: result.message });
+parentRouter.post('/link-child', requireParentAuth, (_req: Request, res: Response) => {
+  // Direct ID linking bypasses proof of guardianship. Use the expiring pairing-code flow instead.
+  res.status(403).json({ error: 'Direct child-ID linking is disabled. Use /link-with-code with a valid, unexpired student pairing code.' });
 });
 
 /**
@@ -195,8 +171,13 @@ parentRouter.post('/unlock-request/respond', requireParentAuth, (req: Request, r
  * POST /api/v1/parent/override-pin
  * Instant on-device override using parent PIN
  */
-parentRouter.post('/override-pin', (req: Request, res: Response) => {
+parentRouter.post('/override-pin', requireParentAuth, (req: Request, res: Response) => {
   const { studentId, pin, extensionMinutes } = req.body;
+  const parentId = (req as any).parentId;
+  const parent = parentService.getParentById(parentId);
+  if (!parent || !parent.linkedChildIds.includes(studentId)) {
+    return res.status(403).json({ error: 'You may only override a linked child session.' });
+  }
 
   if (!studentId || !pin) {
     return res.status(400).json({ error: 'studentId and pin are required.' });

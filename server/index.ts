@@ -11,6 +11,7 @@ import { sessionRouter } from './routes/sessionRoutes';
 import { authRouter } from './routes/authRoutes';
 import { parentService } from './services/parentService';
 import { learningStateService } from './services/learningStateService';
+import { AuthenticatedRequest, requireAuth, requireRole } from './routes/authRoutes';
 
 export function createServerApp() {
   const app = express();
@@ -61,7 +62,6 @@ export function createServerApp() {
     },
   };
 
-  let activeStudentId = 'learner_pilot_odia_01';
 
   // Health check endpoint
   app.get('/api/v1/healthz', (_req, res) => {
@@ -74,28 +74,43 @@ export function createServerApp() {
   });
 
   // Learner profile endpoints
-  app.get('/api/v1/learner/profile', (_req, res) => {
-    res.json(studentProfiles[activeStudentId]);
+  app.get('/api/v1/learner/profile', requireAuth, requireRole(['STUDENT']), (req, res) => {
+    const learnerId = (req as AuthenticatedRequest).user!.uid;
+    const profile = studentProfiles[learnerId];
+    if (!profile) return res.status(404).json({ error: 'Learner profile not found.' });
+    res.json(profile);
   });
 
-  app.post('/api/v1/learner/profile', (req, res) => {
-    studentProfiles[activeStudentId] = { ...studentProfiles[activeStudentId], ...req.body };
-    res.json({ status: 'SAVED', profile: studentProfiles[activeStudentId] });
+  app.post('/api/v1/learner/profile', requireAuth, requireRole(['STUDENT']), (req, res) => {
+    const learnerId = (req as AuthenticatedRequest).user!.uid;
+    const current = studentProfiles[learnerId];
+    if (!current) return res.status(404).json({ error: 'Learner profile not found.' });
+    // Identity, class, role, and parent links are server-owned; only language preferences are editable here.
+    const allowed = ['uiLanguage', 'explanationLanguage', 'instructionalLanguage', 'assessmentLanguage'];
+    const suppliedLanguages = req.body?.languages;
+    if (suppliedLanguages !== undefined && (!suppliedLanguages || typeof suppliedLanguages !== 'object' || Array.isArray(suppliedLanguages))) {
+      return res.status(400).json({ error: 'languages must be an object.' });
+    }
+    const languages = suppliedLanguages
+      ? Object.fromEntries(allowed.filter((key) => typeof suppliedLanguages[key] === 'string').map((key) => [key, suppliedLanguages[key]]))
+      : {};
+    studentProfiles[learnerId] = { ...current, languages: { ...current.languages, ...languages } };
+    res.json({ status: 'SAVED_IN_MEMORY_ONLY', profile: studentProfiles[learnerId] });
   });
 
   // Switch active learner endpoint
-  app.post('/api/v1/learner/switch', (req, res) => {
-    const { studentId } = req.body;
-    if (studentProfiles[studentId]) {
-      activeStudentId = studentId;
-      return res.json({ status: 'SWITCHED', profile: studentProfiles[activeStudentId] });
-    }
-    res.status(404).json({ error: 'Student profile not found' });
+  app.post('/api/v1/learner/switch', requireAuth, requireRole(['STUDENT']), (req, res) => {
+    const learnerId = (req as AuthenticatedRequest).user!.uid;
+    const profile = studentProfiles[learnerId];
+    if (!profile) return res.status(404).json({ error: 'Learner profile not found.' });
+    // A learner cannot switch identity by supplying another student's ID.
+    res.json({ status: 'UNCHANGED', profile });
   });
 
   // Learner progress endpoint - powered by real persistent learningStateService
-  app.get('/api/v1/learner/progress', (_req, res) => {
-    const progress = learningStateService.getLearningProgress(activeStudentId);
+  app.get('/api/v1/learner/progress', requireAuth, requireRole(['STUDENT']), (req, res) => {
+    const learnerId = (req as AuthenticatedRequest).user!.uid;
+    const progress = learningStateService.getLearningProgress(learnerId);
     res.json(progress);
   });
 

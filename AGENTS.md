@@ -167,3 +167,12 @@ The system implements the mandatory 8-stage agentic state machine:
 9. `updateStudyPlan`: Modifies active milestones and tracks completion.
 10. `requestParentUnlock`: Submits emergency unlock requests when parental screen-time or inactivity limits trigger.
 
+## Security Audit Status — October 2026
+
+- Keep this repository's existing React + TypeScript + Express architecture; do not silently replace it with FastAPI or a new scaffold.
+- Every private API route must use verified server-issued authentication and enforce role and record ownership on the server.
+- Demo seed accounts must only be enabled explicitly with `PATHASALA_ENABLE_DEMO_ACCOUNTS=true` in non-production environments. Never allow predictable demo credentials in production.
+- In-memory Maps are not persistence. Do not describe records as persistent unless a durable server-side repository is configured and restart tests pass.
+- Offline mutations are not synced merely because a request was accepted. A mutation may be marked synced only after the authenticated server validates and durably applies it.
+- When credentials or services are unavailable, fail safely, preserve pending user work, document the configuration required, and report unverified items honestly.
+- Before merging security changes, run the repository test suite, TypeScript checks, and production build; record the actual command output.
