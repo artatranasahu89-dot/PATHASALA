@@ -45,7 +45,10 @@ class AuthService {
   private pairingCodes: Map<string, StudentPairingCode> = new Map(); // code -> StudentPairingCode
 
   constructor() {
-    this.seedDefaultAccounts();
+    // Predictable seeded credentials are available only when explicitly enabled outside production.
+    if (process.env.NODE_ENV !== 'production' && process.env.PATHASALA_ENABLE_DEMO_ACCOUNTS === 'true') {
+      this.seedDefaultAccounts();
+    }
   }
 
   /**
