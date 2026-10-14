@@ -3,8 +3,10 @@
  */
 
 import { Router } from 'express';
+import { requireAuth, requireRole } from './authRoutes';
 
 export const syncRouter = Router();
+syncRouter.use(requireAuth, requireRole(['STUDENT']));
 
 const processedActionIds = new Set<string>();
 
