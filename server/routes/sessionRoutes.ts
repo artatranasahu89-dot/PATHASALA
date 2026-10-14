@@ -5,18 +5,26 @@
  */
 
 import { Router, Request, Response } from 'express';
+import { AuthenticatedRequest, requireAuth, requireRole } from './authRoutes';
 import { parentService } from '../services/parentService';
 
 export const sessionRouter = Router();
+sessionRouter.use(requireAuth, requireRole(['STUDENT']));
+
+function actingStudentId(req: Request): string {
+  return (req as AuthenticatedRequest).user!.uid;
+}
+
 
 /**
  * POST /api/v1/study/session/start
  * Starts a new study session for the student
  */
 sessionRouter.post('/start', (req: Request, res: Response) => {
-  const { studentId, activityType, title, subjectId, idempotencyKey } = req.body;
+  const { activityType, title, subjectId, idempotencyKey } = req.body;
+  const studentId = actingStudentId(req);
 
-  if (!studentId || !activityType || !title || !subjectId) {
+  if (!activityType || !title || !subjectId) {
     return res.status(400).json({ error: 'studentId, activityType, title, and subjectId are required.' });
   }
 
@@ -36,9 +44,10 @@ sessionRouter.post('/start', (req: Request, res: Response) => {
  * Pause an active study session
  */
 sessionRouter.post('/pause', (req: Request, res: Response) => {
-  const { sessionId, studentId, idempotencyKey } = req.body;
+  const { sessionId, idempotencyKey } = req.body;
+  const studentId = actingStudentId(req);
 
-  if (!sessionId || !studentId) {
+  if (!sessionId) {
     return res.status(400).json({ error: 'sessionId and studentId are required.' });
   }
 
@@ -78,7 +87,8 @@ sessionRouter.post('/resume', (req: Request, res: Response) => {
  * - 10 minutes: flags RESTRICT_APP
  */
 sessionRouter.post('/pulse', (req: Request, res: Response) => {
-  const { sessionId, studentId, hasUserInteraction, deltaSeconds } = req.body;
+  const { sessionId, hasUserInteraction, deltaSeconds } = req.body;
+  const studentId = actingStudentId(req);
 
   if (!sessionId || !studentId) {
     return res.status(400).json({ error: 'sessionId and studentId are required.' });
@@ -115,6 +125,8 @@ sessionRouter.post('/break', (req: Request, res: Response) => {
   }
 
   try {
+    const active = parentService.getActiveSession(actingStudentId(req));
+    if (!active || active.id !== sessionId) return res.status(403).json({ error: 'Session does not belong to the authenticated learner.' });
     const session = parentService.toggleBreak(sessionId, start);
     res.json({ session, status: start ? 'ON_BREAK' : 'BREAK_ENDED' });
   } catch (err: any) {
@@ -134,6 +146,8 @@ sessionRouter.post('/end', (req: Request, res: Response) => {
   }
 
   try {
+    const active = parentService.getActiveSession(actingStudentId(req));
+    if (!active || active.id !== sessionId) return res.status(403).json({ error: 'Session does not belong to the authenticated learner.' });
     const session = parentService.endStudySession(sessionId);
     res.json({ session, status: 'COMPLETED' });
   } catch (err: any) {
@@ -146,9 +160,10 @@ sessionRouter.post('/end', (req: Request, res: Response) => {
  * Student submits an unlock request to their linked parent
  */
 sessionRouter.post('/request-unlock', (req: Request, res: Response) => {
-  const { studentId, sessionId, reason, studentNote } = req.body;
+  const { sessionId, reason, studentNote } = req.body;
+  const studentId = actingStudentId(req);
 
-  if (!studentId || !sessionId || !reason) {
+  if (!sessionId || !reason) {
     return res.status(400).json({ error: 'studentId, sessionId, and reason are required.' });
   }
 
@@ -165,7 +180,7 @@ sessionRouter.post('/request-unlock', (req: Request, res: Response) => {
  * Get current session status for student
  */
 sessionRouter.get('/status/:studentId', (req: Request, res: Response) => {
-  const studentId = req.params.studentId;
+  const studentId = actingStudentId(req);
   const session = parentService.getActiveSession(studentId);
   const policy = parentService.getPolicy(studentId);
 
