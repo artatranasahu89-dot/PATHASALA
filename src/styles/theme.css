@@ -1,0 +1,21 @@
+/**
+ * BharatLearn AI Theme and Typography Styles
+ * Specialized font settings for Indian scripts (Odia, Devanagari, etc.)
+ */
+
+:root {
+  --font-odia: "Noto Sans Oriya", "Kalinga", "Nirmala UI", system-ui, sans-serif;
+  --font-hindi: "Noto Sans Devanagari", "Nirmala UI", system-ui, sans-serif;
+}
+
+/* Ensure proper line height for Odia script matras and conjuncts */
+.lang-odia {
+  font-family: var(--font-odia);
+  line-height: 1.7;
+  letter-spacing: 0.015em;
+}
+
+.lang-hindi {
+  font-family: var(--font-hindi);
+  line-height: 1.6;
+}

@@ -1,0 +1,365 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User account identity for BharatLearn AI (Parent or Student)",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "User Firebase Auth UID"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User email address"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User display name"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["PARENT", "STUDENT"],
+          "description": "System role"
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "Phone number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Account creation ISO timestamp"
+        }
+      },
+      "required": ["id", "email", "displayName", "role", "createdAt"]
+    },
+    "StudentProfile": {
+      "title": "StudentProfile",
+      "description": "Educational profile and enrolled grade level for a student",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Student ID"
+        },
+        "studentUid": {
+          "type": "string",
+          "description": "Auth UID of the student"
+        },
+        "fullName": {
+          "type": "string",
+          "description": "Student full name"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["PRIMARY", "MIDDLE", "SECONDARY", "SENIOR_SECONDARY", "COLLEGE", "COMPETITIVE", "VOCATIONAL", "ADULT"],
+          "description": "Educational category"
+        },
+        "gradeLevel": {
+          "type": "number",
+          "description": "Numeric grade level (1-12)"
+        },
+        "assignedClass": {
+          "type": "string",
+          "description": "Official assigned class label"
+        },
+        "curriculumCode": {
+          "type": "string",
+          "description": "Curriculum code such as BSE_ODISHA"
+        },
+        "isMinor": {
+          "type": "boolean",
+          "description": "Whether the learner is a minor (under 18 or Classes 1-10)"
+        },
+        "parentUid": {
+          "type": "string",
+          "description": "UID of linked parent account"
+        },
+        "linkingCode": {
+          "type": "string",
+          "description": "Active time-limited pairing code for parent linkage"
+        },
+        "linkingCodeExpiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Expiry time of the pairing code"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation ISO timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update ISO timestamp"
+        }
+      },
+      "required": ["id", "studentUid", "fullName", "category", "gradeLevel", "assignedClass", "curriculumCode", "isMinor", "createdAt", "updatedAt"]
+    },
+    "ParentProfile": {
+      "title": "ParentProfile",
+      "description": "Parent profile managing up to two linked children",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Parent UID"
+        },
+        "parentUid": {
+          "type": "string",
+          "description": "Auth UID of the parent"
+        },
+        "fullName": {
+          "type": "string",
+          "description": "Parent full name"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Parent email"
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "Parent phone number"
+        },
+        "linkedStudentIds": {
+          "type": "array",
+          "description": "Array of linked student IDs (max 2)"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation ISO timestamp"
+        }
+      },
+      "required": ["id", "parentUid", "fullName", "email", "linkedStudentIds", "createdAt"]
+    },
+    "ParentalPolicy": {
+      "title": "ParentalPolicy",
+      "description": "Screen time, study window, and activity restrictions for a student",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Policy ID (student ID)"
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Associated student ID"
+        },
+        "parentUid": {
+          "type": "string",
+          "description": "Owner parent UID"
+        },
+        "controlsEnabled": {
+          "type": "boolean",
+          "description": "Whether parental controls are enforced"
+        },
+        "dailyScreenTimeLimitMinutes": {
+          "type": "number",
+          "description": "Daily screen time limit in minutes"
+        },
+        "maxContinuousSessionMinutes": {
+          "type": "number",
+          "description": "Max continuous study time before break is mandatory"
+        },
+        "mandatoryBreakMinutes": {
+          "type": "number",
+          "description": "Required break duration in minutes"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last policy update timestamp"
+        }
+      },
+      "required": ["id", "studentId", "parentUid", "controlsEnabled", "dailyScreenTimeLimitMinutes", "maxContinuousSessionMinutes", "mandatoryBreakMinutes", "updatedAt"]
+    },
+    "StudySession": {
+      "title": "StudySession",
+      "description": "Stateful study session tracked with server-authorised timestamps",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique session ID"
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Student owner of session"
+        },
+        "parentUid": {
+          "type": "string",
+          "description": "Linked parent UID"
+        },
+        "activityType": {
+          "type": "string",
+          "enum": ["LESSON", "HOMEWORK", "PRACTICE_QUIZ", "EDUCATIONAL_VIDEO", "READING"],
+          "description": "Type of educational activity"
+        },
+        "subjectId": {
+          "type": "string",
+          "description": "Subject studied"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the learning task"
+        },
+        "state": {
+          "type": "string",
+          "enum": ["ACTIVE_STUDY", "POSSIBLE_INACTIVITY", "REMINDER", "RESTRICTED", "PARENT_UNLOCKED", "SESSION_COMPLETED", "PAUSED", "ON_BREAK"],
+          "description": "Current state machine state"
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server session start ISO timestamp"
+        },
+        "lastPulseAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last activity pulse"
+        },
+        "accumulatedStudySeconds": {
+          "type": "number",
+          "description": "Accumulated verified active study seconds"
+        },
+        "inactivitySeconds": {
+          "type": "number",
+          "description": "Seconds elapsed without interaction"
+        },
+        "isBreakActive": {
+          "type": "boolean",
+          "description": "Whether currently on an authorised break"
+        },
+        "unlockStatus": {
+          "type": "string",
+          "enum": ["NONE", "PENDING", "APPROVED", "REJECTED"],
+          "description": "Status of parent unlock request"
+        }
+      },
+      "required": ["id", "studentId", "activityType", "subjectId", "title", "state", "startedAt", "lastPulseAt", "accumulatedStudySeconds", "inactivitySeconds", "isBreakActive", "unlockStatus"]
+    },
+    "ParentAlert": {
+      "title": "ParentAlert",
+      "description": "Auditable parental alert for inactivity or study events",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Alert ID"
+        },
+        "parentUid": {
+          "type": "string",
+          "description": "Target parent UID"
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Child student ID"
+        },
+        "studentName": {
+          "type": "string",
+          "description": "Child display name"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["INFO", "WARNING", "ALERT"],
+          "description": "Alert severity"
+        },
+        "title": {
+          "type": "string",
+          "description": "Alert title"
+        },
+        "message": {
+          "type": "string",
+          "description": "Alert message body"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Alert creation timestamp"
+        },
+        "acknowledged": {
+          "type": "boolean",
+          "description": "Whether parent acknowledged this alert"
+        }
+      },
+      "required": ["id", "parentUid", "studentId", "studentName", "severity", "title", "message", "timestamp", "acknowledged"]
+    },
+    "UnlockRequest": {
+      "title": "UnlockRequest",
+      "description": "Formal request by student to unlock a restricted session",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Request ID"
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Requesting student ID"
+        },
+        "studentName": {
+          "type": "string",
+          "description": "Student full name"
+        },
+        "parentUid": {
+          "type": "string",
+          "description": "Target parent UID"
+        },
+        "sessionId": {
+          "type": "string",
+          "description": "Associated session ID"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Reason for unlock request"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["PENDING", "APPROVED", "REJECTED"],
+          "description": "Approval status"
+        },
+        "requestedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Submission ISO timestamp"
+        }
+      },
+      "required": ["id", "studentId", "studentName", "parentUid", "sessionId", "reason", "status", "requestedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User accounts for authentication and role verification"
+    },
+    "/students/{studentId}": {
+      "schema": "StudentProfile",
+      "description": "Independent student profiles with class assignments and pairing codes"
+    },
+    "/parents/{parentUid}": {
+      "schema": "ParentProfile",
+      "description": "Parent profiles and linked student IDs"
+    },
+    "/policies/{studentId}": {
+      "schema": "ParentalPolicy",
+      "description": "Parental control policy rules per student"
+    },
+    "/study_sessions/{sessionId}": {
+      "schema": "StudySession",
+      "description": "Real-time stateful study sessions with pulse timestamps"
+    },
+    "/alerts/{alertId}": {
+      "schema": "ParentAlert",
+      "description": "Parent notifications and audit trail"
+    },
+    "/unlock_requests/{requestId}": {
+      "schema": "UnlockRequest",
+      "description": "Unlock requests submitted by students"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "BharatLearn AI",
+  "description": "Agentic EdTech platform providing adaptive, multilingual learning across India.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

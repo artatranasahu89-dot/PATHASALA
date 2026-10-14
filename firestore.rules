@@ -1,0 +1,110 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getParentData(parentUid) {
+      return get(/databases/$(database)/documents/parents/$(parentUid)).data;
+    }
+
+    function isLinkedParentOf(studentId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/parents/$(request.auth.uid)) &&
+        studentId in getParentData(request.auth.uid).linkedStudentIds;
+    }
+
+    function isValidId(id) {
+      return id is string && id.matches('^[a-zA-Z0-9_\\-]+$') && id.size() <= 128;
+    }
+
+    // 1. Users collection: Auth account profile
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        request.resource.data.keys().hasAll(['id', 'email', 'displayName', 'role', 'createdAt']) &&
+        request.resource.data.role in ['PARENT', 'STUDENT'];
+      allow update: if isOwner(userId) &&
+        request.resource.data.role == resource.data.role; // Prevent role tampering
+      allow delete: if false;
+    }
+
+    // 2. Parents collection: Parent profile & linked children (max 2)
+    match /parents/{parentUid} {
+      allow read: if isOwner(parentUid);
+      allow create, update: if isOwner(parentUid) &&
+        request.resource.data.linkedStudentIds is list &&
+        request.resource.data.linkedStudentIds.size() <= 2;
+      allow delete: if false;
+    }
+
+    // 3. Students collection: Independent student profile & class assignment
+    match /students/{studentId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.studentUid ||
+        isLinkedParentOf(studentId)
+      );
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.studentUid;
+      allow update: if isAuthenticated() && (
+        (request.auth.uid == resource.data.studentUid) ||
+        isLinkedParentOf(studentId)
+      );
+      allow delete: if false;
+    }
+
+    // 4. Parental Policies: Age and Class-based screen time and study window rules
+    match /policies/{studentId} {
+      allow read: if isAuthenticated() && (
+        (exists(/databases/$(database)/documents/students/$(studentId)) &&
+         get(/databases/$(database)/documents/students/$(studentId)).data.studentUid == request.auth.uid) ||
+        isLinkedParentOf(studentId)
+      );
+      allow write: if isAuthenticated() && (
+        isLinkedParentOf(studentId) ||
+        (resource == null && request.auth.uid == request.resource.data.parentUid)
+      );
+    }
+
+    // 5. Study Sessions: Real-time study sessions & state machine
+    match /study_sessions/{sessionId} {
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        isLinkedParentOf(resource.data.studentId)
+      );
+      allow create: if isAuthenticated() && (
+        request.resource.data.studentId == request.auth.uid ||
+        isLinkedParentOf(request.resource.data.studentId)
+      );
+      allow update: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        isLinkedParentOf(resource.data.studentId)
+      );
+      allow delete: if false;
+    }
+
+    // 6. Alerts: Notifications for linked parent
+    match /alerts/{alertId} {
+      allow read, update: if isAuthenticated() && request.auth.uid == resource.data.parentUid;
+      allow create: if isAuthenticated();
+      allow delete: if false;
+    }
+
+    // 7. Unlock Requests: Student submission & Parent approval
+    match /unlock_requests/{requestId} {
+      allow read: if isAuthenticated() && (
+        resource.data.studentId == request.auth.uid ||
+        resource.data.parentUid == request.auth.uid
+      );
+      allow create: if isAuthenticated() && request.resource.data.studentId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.parentUid == request.auth.uid;
+      allow delete: if false;
+    }
+  }
+}
